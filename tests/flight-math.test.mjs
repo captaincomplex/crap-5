@@ -1,0 +1,18 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {airData,airRotation,trueAltitudeRotation,soundSpeed,temperatureRise,windRead,densityAltitude,density,units} from '../src/flight-math.mjs';
+const near=(actual,expected,tol)=>assert.ok(Math.abs(actual-expected)<=tol,`${actual} expected ${expected} ± ${tol}`);
+test('handbook: RAS 170 at 18000 ft, -30 C → approximately 220 TAS',()=>near(airData(18000,-30,170).initial,220,1.1));
+test('handbook: RAS 280 at 35000 ft, -47 C → corrected approximately 480 TAS',()=>near(airData(35000,-47,280).tas,480,2));
+test('handbook: Mach .82 at -45 C → approximately 482 TAS',()=>near(.82*soundSpeed(-45),482,1));
+test('handbook: density altitude 5000 ft at ISA temperature',()=>near(airData(5000,5,120).da,5000,20));
+test('handbook: density altitude 5000 ft at 30 C → approximately 8000 ft',()=>near(airData(5000,30,120).da,8000,220));
+test('handbook: true altitude cold and warm examples',()=>{near(20000*10**(trueAltitudeRotation(20000,-35)/360),19200,50);near(20000*10**(trueAltitudeRotation(20000,-10)/360),21200,60)});
+test('handbook: temperature rise at 297 kt → approximately 9 C',()=>near(temperatureRise(297),9,.4));
+test('handbook: 116 heading, TAS120, wind260/40 → track107 GS154',()=>{const w=windRead(116,120,260,40);near(w.gs,154,.5);near(w.track,107,.5)});
+test('handbook: heading45 TAS170 wind083/35 → track036 GS144',()=>{const w=windRead(45,170,83,35);near(w.gs,144,1);near(w.track,36,.5)});
+test('handbook: fuel 708 imp gallons SG .74 → 2380 kg,5250 lb',()=>{near(708*4.54609*.74,2380,2);near(708*4.54609*.74*2.20462262,5250,2)});
+test('handbook: 2650km → approximately 1430nm and 1640 statute miles',()=>{near(2650/1.852,1430,1);near(2650/1.609344,1640,8)});
+test('physical window alignment determines same density as main logarithmic ratio',()=>{for(let h of [0,5000,18000,35000,45000])for(let t of [-50,0,30]){const d=airRotation(h,t);near(10**(-d/180),density(h,t),1e-10);near(densityAltitude(density(h,t)),airData(h,t,100).da,1e-7)}});
+test('zero-altitude pitot correction returns CAS at ISA',()=>near(airData(0,15,300).tas,300,.01));
+test('invalid and supersonic entries rejected',()=>{assert.throws(()=>airData(51000,0,100));assert.throws(()=>airData(10000,-100,100));assert.throws(()=>airData(40000,0,700))});
